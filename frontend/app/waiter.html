@@ -1,0 +1,83 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Waiter Tablet</title>
+  <style> body{font-family:system-ui;margin:1rem} button{margin:.25rem} .box{border:1px solid #ddd;padding:1rem;margin:1rem 0} </style>
+</head>
+<body>
+  <h1>Waiter Tablet</h1>
+  <div class="box">
+    <h3>Login</h3>
+    <input id="user" value="waiter1"/> <input id="pass" value="password" type="password"/>
+    <button id="login">Login</button>
+    <span id="auth"></span>
+  </div>
+  <div class="box">
+    <h3>Activate table</h3>
+    <input id="tableId" value="1" size="3"/>
+    <button id="activate">Activate & Assign</button>
+  </div>
+  <div class="box">
+    <h3>My tables</h3>
+    <button id="loadTables">Refresh</button>
+    <div id="tables"></div>
+  </div>
+  <div class="box">
+    <h3>Orders for table</h3>
+    <input id="otable" value="1" size="3"/>
+    <button id="loadOrders">Load</button>
+    <div id="orders"></div>
+  </div>
+
+<script>
+let token = null;
+function authHeaders(){ return token? { 'Authorization':'Bearer '+token } : {}; }
+
+document.getElementById('login').onclick = async ()=>{
+  const username = document.getElementById('user').value;
+  const password = document.getElementById('pass').value;
+  const res = await fetch('/api/auth/login', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({username,password})});
+  if(!res.ok){ alert('Login failed'); return; }
+  const j = await res.json(); token = j.access_token; document.getElementById('auth').textContent = 'Logged in';
+};
+
+document.getElementById('activate').onclick = async ()=>{
+  const tableId = document.getElementById('tableId').value;
+  const res = await fetch(`/api/tables/${tableId}/activate`, {method:'POST', headers: authHeaders()});
+  const j = await res.json(); alert('Activated: '+JSON.stringify(j));
+};
+
+document.getElementById('loadTables').onclick = async ()=>{
+  const res = await fetch('/api/waiters/me/tables', {headers:authHeaders()});
+  const j = await res.json();
+  document.getElementById('tables').innerHTML = j.map(t=>`<div>Table ${t.id} - ${t.active? 'active':'inactive'}</div>`).join('');
+};
+
+document.getElementById('loadOrders').onclick = async ()=>{
+  const t = document.getElementById('otable').value;
+  const res = await fetch(`/api/waiters/tables/${t}/orders`, {headers:authHeaders()});
+  const j = await res.json();
+  document.getElementById('orders').innerHTML = j.map(o=>`<div class='box'>Order #${o.id} - ${o.status}<div>`+
+    o.items.map(i=>`<div>Item #${i.id} ${i.name} — ${i.status} `+
+      (i.status==='ready'?`<button onclick="deliver(${i.id})">Mark Delivered</button>`:'')+`</div>`).join('')+
+    `</div>`+
+    (o.status==='placed'?`<button onclick="approve(${o.id})">Accept</button> <button onclick="reject(${o.id})">Reject</button>`:'')+
+    `</div>`).join('');
+};
+
+async function approve(orderId){
+  await fetch(`/api/waiters/orders/${orderId}/accept`, {method:'POST', headers:authHeaders()});
+  document.getElementById('loadOrders').click();
+}
+async function reject(orderId){
+  await fetch(`/api/waiters/orders/${orderId}/reject`, {method:'POST', headers:authHeaders()});
+  document.getElementById('loadOrders').click();
+}
+async function deliver(itemId){
+  await fetch(`/api/waiters/items/${itemId}/delivered`, {method:'POST', headers:authHeaders()});
+  document.getElementById('loadOrders').click();
+}
+</script>
+</body>
+</html>

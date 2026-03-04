@@ -1,0 +1,29 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Kitchen Display</title>
+  <style> body{font-family:system-ui;margin:1rem} button{margin:.25rem} .box{border:1px solid #ddd;padding:1rem;margin:1rem 0} </style>
+</head>
+<body>
+  <h1>Kitchen Display</h1>
+  <p>Enter Order ID to manage items:</p>
+  <input id="orderId" value="1" size="4"> <button id="load">Load</button>
+  <div id="items"></div>
+  <script>
+  document.getElementById('load').onclick = async ()=>{
+    const oid = document.getElementById('orderId').value;
+    const o = await (await fetch(`/api/customers/orders/${oid}`)).json();
+    document.getElementById('items').innerHTML = o.items.map(i=>`<div class='box'>#${i.id} ${i.name} — ${i.status}
+    <button onclick="act(${i.id},'accept')">Accept</button>
+    <button onclick="act(${i.id},'reject')">Reject</button>
+    <button onclick="act(${i.id},'ready')">Ready</button>
+    </div>`).join('');
+  };
+  async function act(id, action){
+    await fetch(`/api/chefs/items/${id}/`+action, {method:'POST'});
+    document.getElementById('load').click();
+  }
+  </script>
+</body>
+</html>
